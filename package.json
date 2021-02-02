@@ -5,5 +5,9 @@
   "license": "MIT",
   "devDependencies": {
     "truffle": "^5.1.64"
+  },
+  "dependencies": {
+    "@truffle/hdwallet-provider": "^1.2.1",
+    "solc": "0.8.1"
   }
 }
