@@ -1,6 +1,6 @@
 // contracts/ERC1132.sol
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.4.22 <0.8.0;
+pragma solidity >=0.4.22 <0.9.0;
 
 /**
  * @title ERC1132 interface
@@ -54,8 +54,7 @@ abstract contract ERC1132 {
      * @param _amount Number of tokens to be locked
      * @param _time Lock time in seconds
      */
-    function lock(bytes32 _reason, uint256 _amount, uint256 _time)
-        public virtual returns (bool);
+    function lock(bytes32 _reason, uint256 _amount, uint256 _time) virtual public returns (bool);
 
     /**
      * @dev Returns tokens locked for a specified address for a
@@ -64,8 +63,7 @@ abstract contract ERC1132 {
      * @param _of The address whose tokens are locked
      * @param _reason The reason to query the lock tokens for
      */
-    function tokensLocked(address _of, bytes32 _reason)
-        public virtual returns (uint256 amount);
+    function tokensLocked(address _of, bytes32 _reason) virtual public view returns (uint256 amount);
 
     /**
      * @dev Returns tokens locked for a specified address for a
@@ -75,52 +73,44 @@ abstract contract ERC1132 {
      * @param _reason The reason to query the lock tokens for
      * @param _time The timestamp to query the lock tokens for
      */
-    function tokensLockedAtTime(address _of, bytes32 _reason, uint256 _time)
-        public virtual returns (uint256 amount);
+    function tokensLockedAtTime(address _of, bytes32 _reason, uint256 _time) virtual public view returns (uint256 amount);
 
     /**
      * @dev Returns total tokens held by an address (locked + transferable)
      * @param _of The address to query the total balance of
      */
-    function totalBalanceOf(address _of)
-        public virtual returns (uint256 amount);
+    function totalBalanceOf(address _of) virtual public view returns (uint256 amount);
 
     /**
      * @dev Extends lock for a specified reason and time
      * @param _reason The reason to lock tokens
      * @param _time Lock extension time in seconds
      */
-    function extendLock(bytes32 _reason, uint256 _time)
-        public virtual returns (bool);
+    function extendLock(bytes32 _reason, uint256 _time) virtual public returns (bool);
 
     /**
      * @dev Increase number of tokens locked for a specified reason
      * @param _reason The reason to lock tokens
      * @param _amount Number of tokens to be increased
      */
-    function increaseLockAmount(bytes32 _reason, uint256 _amount)
-        public virtual returns (bool);
+    function increaseLockAmount(bytes32 _reason, uint256 _amount) virtual public returns (bool);
 
     /**
      * @dev Returns unlockable tokens for a specified address for a specified reason
      * @param _of The address to query the the unlockable token count of
      * @param _reason The reason to query the unlockable tokens for
      */
-    function tokensUnlockable(address _of, bytes32 _reason)
-        public virtual returns (uint256 amount);
+    function tokensUnlockable(address _of, bytes32 _reason) virtual public view returns (uint256 amount);
 
     /**
      * @dev Unlocks the unlockable tokens of a specified address
      * @param _of Address of user, claiming back unlockable tokens
      */
-    function unlock(address _of)
-        public virtual returns (uint256 unlockableTokens);
+    function unlock(address _of) virtual public returns (uint256 unlockableTokens);
 
     /**
      * @dev Gets the unlockable tokens of a specified address
      * @param _of The address to query the the unlockable token count of
      */
-    function getUnlockableTokens(address _of)
-        public virtual returns (uint256 unlockableTokens);
-
+    function getUnlockableTokens(address _of) virtual public view returns (uint256 unlockableTokens);
 }

@@ -18,7 +18,7 @@
  *
  */
 
-const HDWalletProvider = require('@truffle/hdwallet-provider');
+const HDWalletProvider = require('truffle-hdwallet-provider');
 const infuraKey = "2018c8c9dcfe4b94b0e38f9ebdf98c76";
 //
 const fs = require('fs');
@@ -59,7 +59,7 @@ module.exports = {
     // Useful for deploying to a public network.
     // NB: It's important to wrap the provider as a function.
     ropsten: {
-      provider: () => new HDWalletProvider(privateKey, `https://ropsten.infura.io/v3/${infuraKey}`),
+      provider: () => new HDWalletProvider(privateKey, `https://ropsten.infura.io/v3/${infuraKey}`, 0, 1),
       network_id: 3,       // Ropsten's id
       gas: 5500000,        // Ropsten has a lower block limit than mainnet
       confirmations: 2,    // # of confs to wait between deployments. (default: 0)
@@ -73,20 +73,27 @@ module.exports = {
     // production: true    // Treats this network as if it was a public net. (default: false)
     // }
   },
-
+  plugins: [
+    "solidity-coverage",
+    "truffle-contract-size"
+  ],
   // Set default mocha options here, use special reporters etc.
   mocha: {
     // timeout: 100000
+    reporter: 'eth-gas-reporter',
+    reporterOptions : {
+      currency: 'KRW'
+    }
   },
 
   // Configure your compilers
   compilers: {
     solc: {
-      version: "0.6.10",    // Fetch exact version from solc-bin (default: truffle's version)
+      version: "0.7.6",    // Fetch exact version from solc-bin (default: truffle's version)
       // docker: true,        // Use "0.5.1" you've installed locally with docker (default: false)
       settings: {          // See the solidity docs for advice about optimization and evmVersion
         optimizer: {
-          enabled: false,
+          enabled: true,
           runs: 200
         },
         //  evmVersion: "byzantium"

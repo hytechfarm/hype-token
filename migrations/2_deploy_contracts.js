@@ -1,5 +1,5 @@
-const HYPE = artifacts.require("HYPE");
+const HYPER = artifacts.require("HYPER");
 
 module.exports = function(deployer) {
-  deployer.deploy(HYPE);
+  deployer.deploy(HYPER);
 };

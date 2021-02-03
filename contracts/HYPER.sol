@@ -1,62 +1,61 @@
 // contracts/HYPE.sol
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.4.22 <0.8.0;
+pragma solidity >=0.4.22 <0.9.0;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./ERC1132.sol";
 
-/// @title HYPE - ERC20 token.
+/// @title ERC20 token.
 /// @notice Implementation for the ERC-1132 lockable token
-
-contract HYPE is ERC1132, ERC20, AccessControl {
+contract HYPER is AccessControl, ERC20, ERC1132 {
   /**
     * @dev Token issue information
     */
   string private _name = "HYPOWER ESCO";
-  string private _symbol = "HYPE";
-  string public version = "1.0";
-  uint8 private constant decimals = 18;
-  uint256 public exponent = 10**uint256(decimals);
-  uint256 private totalSupply = 0;
-  uint256 public totalSupplyCap = 50 * (10**6) * exponent;
+  string private _symbol = "HYPER";
+  string private _version = "1.0";
+  uint8 private _decimals = 18;
+
+  uint256 private _exponent = 10**uint256(_decimals);
+  uint256 private _totalSupply = 0;
+  uint256 private _totalSupplyCap = 50 * (10**6) * _exponent;
+
+  mapping (address => mapping (address => uint256)) private _allowances;
 
   /**
     * @dev Token role information
     */
-  bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-  bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
-
-  /**
-    * @dev Error messages for require statements
-    */
-  string internal constant ALREADY_LOCKED = 'Tokens already locked';
-  string internal constant NOT_LOCKED = 'No tokens locked';
-  string internal constant AMOUNT_ZERO = 'Amount can not be 0';
+  bytes32 private constant MINTER_ROLE = keccak256("MINTER_ROLE");
+  bytes32 private constant BURNER_ROLE = keccak256("BURNER_ROLE");
 
   using SafeMath for uint;
 
   constructor() ERC20(_name, _symbol) {
-    _mint(msg.sender, totalSupply * (10 ** uint(decimals)));
+    _mint(msg.sender, _totalSupply * (10 ** uint(_decimals)));
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     _setupRole(BURNER_ROLE, msg.sender);
     _setupRole(MINTER_ROLE, msg.sender);
   }
 
+  function version() public view returns (string memory) {
+    return _version;
+  }
+
   function mint(address to, uint256 amount) public {
-    require(hasRole(MINTER_ROLE, msg.sender), "Caller is not a minter");
-    require(amount > 0, "Mint amount can't be zero");
-    require(totalSupply.add(amount) <= totalSupplyCap, "Mint amount can't be exceed the maximum supply");
-    totalSupply = totalSupply.add(amount);
+    require(hasRole(MINTER_ROLE, msg.sender));
+    require(amount > 0);
+    require(_totalSupply.add(amount) <= _totalSupplyCap);
+    _totalSupply = _totalSupply.add(amount);
     _mint(to, amount);
   }
 
   function burn(address from, uint256 amount) public {
-    require(hasRole(BURNER_ROLE, msg.sender), "Caller is not a burner");
-    require(amount > 0, "Burn amount can't be zero");
-    require(totalSupply.sub(amount) >= 0, "Burn amount can't be exceed the maximum supply");
-    totalSupply = totalSupply.sub(amount);
+    require(hasRole(BURNER_ROLE, msg.sender));
+    require(amount > 0);
+    require(_totalSupply.sub(amount) >= 0);
+    _totalSupply = _totalSupply.sub(amount);
     _burn(from, amount);
   }
 
@@ -67,20 +66,21 @@ contract HYPE is ERC1132, ERC20, AccessControl {
      * @param _amount Number of tokens to be locked
      * @param _time Lock time in seconds
      */
-  function lock(bytes32 _reason, uint256 _amount, uint256 _time) public override returns (bool) {
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not a admin");
-    require(tokensLocked(msg.sender, _reason) == 0, ALREADY_LOCKED);
-    require(_amount != 0, AMOUNT_ZERO);
+  function lock(bytes32 _reason, uint256 _amount, uint256 _time) override public returns (bool) {
+    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender));
+    require(tokensLocked(msg.sender, _reason) == 0);
+    require(_amount != 0);
     uint256 validUntil = block.timestamp.add(_time);
 
-    if (locked[msg.sender][_reason].amount == 0)
-            lockReason[msg.sender].push(_reason);
+    if (locked[msg.sender][_reason].amount == 0) {
+      lockReason[msg.sender].push(_reason);
+    } 
 
     transfer(address(this), _amount);
-
     locked[msg.sender][_reason] = lockToken(_amount, validUntil, false);
 
     emit Locked(msg.sender, _reason, _amount, validUntil);
+
     return true;
   }
 
@@ -93,20 +93,20 @@ contract HYPE is ERC1132, ERC20, AccessControl {
     * @param _time Lock time in seconds
     */
   function transferWithLock(address _to, bytes32 _reason, uint256 _amount, uint256 _time) public returns (bool) {
+    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender));
+    require(tokensLocked(_to, _reason) == 0);
+    require(_amount != 0);
     uint256 validUntil = block.timestamp.add(_time);
 
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not a admin");
-    require(tokensLocked(_to, _reason) == 0, ALREADY_LOCKED);
-    require(_amount != 0, AMOUNT_ZERO);
-
-    if (locked[_to][_reason].amount == 0)
-        lockReason[_to].push(_reason);
+    if (locked[_to][_reason].amount == 0) {
+      lockReason[_to].push(_reason);
+    }
 
     transfer(address(this), _amount);
-
     locked[_to][_reason] = lockToken(_amount, validUntil, false);
 
     emit Locked(_to, _reason, _amount, validUntil);
+    
     return true;
   }
 
@@ -117,11 +117,15 @@ contract HYPE is ERC1132, ERC20, AccessControl {
     * @param _of The address whose tokens are locked
     * @param _reason The reason to query the lock tokens for
     */
-  function tokensLocked(address _of, bytes32 _reason) public override view returns (uint256 amount) {
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not a admin");
+  function tokensLocked(address _of, bytes32 _reason) override public view returns (uint256 amount) {
+    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender));
+    uint256 _amounts;
 
-    if (!locked[_of][_reason].claimed)
-      amount = locked[_of][_reason].amount;
+    if (!locked[_of][_reason].claimed) {
+      _amounts = locked[_of][_reason].amount;
+    }
+    
+    return _amounts;
   }
 
   /**
@@ -132,25 +136,32 @@ contract HYPE is ERC1132, ERC20, AccessControl {
     * @param _reason The reason to query the lock tokens for
     * @param _time The timestamp to query the lock tokens for
     */
-  function tokensLockedAtTime(address _of, bytes32 _reason, uint256 _time) public override view returns (uint256 amount) {
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not a admin");
+  function tokensLockedAtTime(address _of, bytes32 _reason, uint256 _time) override public view returns (uint256 amount) {
+    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender));
+    uint256 _amounts;
 
-    if (locked[_of][_reason].validity > _time)
-      amount = locked[_of][_reason].amount;
+    if (locked[_of][_reason].validity > _time) {
+      _amounts = locked[_of][_reason].amount;
+    }
+
+    return _amounts;
   }
 
   /**
     * @dev Returns total tokens held by an address (locked + transferable)
     * @param _of The address to query the total balance of
     */
-  function totalBalanceOf(address _of) public override view returns (uint256 amount) {
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not a admin");
+  function totalBalanceOf(address _of) override public view returns (uint256 amount) {
+    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender));
+    uint256 _amounts;
 
-    amount = balanceOf(_of);
+    _amounts = balanceOf(_of);
 
     for (uint256 i = 0; i < lockReason[_of].length; i++) {
-      amount = amount.add(tokensLocked(_of, lockReason[_of][i]));
+      _amounts = _amounts.add(tokensLocked(_of, lockReason[_of][i]));
     }
+
+    return _amounts;
   }
 
   /**
@@ -158,13 +169,14 @@ contract HYPE is ERC1132, ERC20, AccessControl {
     * @param _reason The reason to lock tokens
     * @param _time Lock extension time in seconds
     */
-  function extendLock(bytes32 _reason, uint256 _time) public override returns (bool) {
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not a admin");
-    require(tokensLocked(msg.sender, _reason) > 0, NOT_LOCKED);
+  function extendLock(bytes32 _reason, uint256 _time) override public returns (bool) {
+    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender));
+    require(tokensLocked(msg.sender, _reason) > 0);
 
     locked[msg.sender][_reason].validity = locked[msg.sender][_reason].validity.add(_time);
 
     emit Locked(msg.sender, _reason, locked[msg.sender][_reason].amount, locked[msg.sender][_reason].validity);
+    
     return true;
   }
 
@@ -174,13 +186,14 @@ contract HYPE is ERC1132, ERC20, AccessControl {
     * @param _amount Number of tokens to be increased
     */
   function increaseLockAmount(bytes32 _reason, uint256 _amount) public override returns (bool) {
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not a admin");
-    require(tokensLocked(msg.sender, _reason) > 0, NOT_LOCKED);
+    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender));
+    require(tokensLocked(msg.sender, _reason) > 0);
+    
     transfer(address(this), _amount);
-
     locked[msg.sender][_reason].amount = locked[msg.sender][_reason].amount.add(_amount);
 
     emit Locked(msg.sender, _reason, locked[msg.sender][_reason].amount, locked[msg.sender][_reason].validity);
+    
     return true;
   }
 
@@ -189,11 +202,15 @@ contract HYPE is ERC1132, ERC20, AccessControl {
     * @param _of The address to query the the unlockable token count of
     * @param _reason The reason to query the unlockable tokens for
     */
-  function tokensUnlockable(address _of, bytes32 _reason) public override view returns (uint256 amount) {
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not a admin");
+  function tokensUnlockable(address _of, bytes32 _reason) override public view returns (uint256 amount) {
+    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender));
+    uint256 _amounts;
 
-    if (locked[_of][_reason].validity <= block.timestamp && !locked[_of][_reason].claimed)
-      amount = locked[_of][_reason].amount;
+    if (locked[_of][_reason].validity <= block.timestamp && !locked[_of][_reason].claimed) {
+      _amounts = locked[_of][_reason].amount;
+    }
+
+    return _amounts;
   }
 
   /**
@@ -201,33 +218,37 @@ contract HYPE is ERC1132, ERC20, AccessControl {
     * @param _of Address of user, claiming back unlockable tokens
     */
   function unlock(address _of) public override returns (uint256 unlockableTokens) {
-    uint256 lockedTokens;
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not a admin");
+    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender));
+    uint256 _lockedTokens;
+    uint256 _unlockableTokens;
 
     for (uint256 i = 0; i < lockReason[_of].length; i++) {
-      lockedTokens = tokensUnlockable(_of, lockReason[_of][i]);
-      if (lockedTokens > 0) {
-        unlockableTokens = unlockableTokens.add(lockedTokens);
+      _lockedTokens = tokensUnlockable(_of, lockReason[_of][i]);
+
+      if (_lockedTokens > 0) {
+        _unlockableTokens = _unlockableTokens.add(_lockedTokens);
         locked[_of][lockReason[_of][i]].claimed = true;
-        emit Unlocked(_of, lockReason[_of][i], lockedTokens);
+        emit Unlocked(_of, lockReason[_of][i], _lockedTokens);
       }
     }
 
-    if (unlockableTokens > 0)
-      this.transfer(_of, unlockableTokens);
+    if (_unlockableTokens > 0) {
+      this.transfer(_of, _unlockableTokens);
+    }
+
+    return _unlockableTokens;
   }
 
-  /**
-    * @dev Gets the unlockable tokens of a specified address
-    * @param _of The address to query the the unlockable token count of
-    */
   function getUnlockableTokens(address _of) public override view returns (uint256 unlockableTokens) {
-    uint256 lockedTokens;
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not a admin");
+    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender));
+    uint256 _lockedTokens;
+    uint256 _unlockableTokens;
 
     for (uint256 i = 0; i < lockReason[_of].length; i++) {
-      lockedTokens = tokensUnlockable(_of, lockReason[_of][i]);
-      unlockableTokens = unlockableTokens.add(lockedTokens);
+      _lockedTokens = tokensUnlockable(_of, lockReason[_of][i]);
+      _unlockableTokens = _unlockableTokens.add(_lockedTokens);
     }
+
+    return unlockableTokens;
   }
 }
