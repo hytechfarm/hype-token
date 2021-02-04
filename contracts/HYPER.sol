@@ -29,6 +29,7 @@ contract HYPER is AccessControl, ERC20, ERC1132 {
     */
   bytes32 private constant MINTER_ROLE = keccak256("MINTER_ROLE");
   bytes32 private constant BURNER_ROLE = keccak256("BURNER_ROLE");
+  bytes32 private constant LOCK_ROLE = keccak256("LOCK_ROLE");
 
   using SafeMath for uint;
 
@@ -37,10 +38,15 @@ contract HYPER is AccessControl, ERC20, ERC1132 {
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     _setupRole(BURNER_ROLE, msg.sender);
     _setupRole(MINTER_ROLE, msg.sender);
+    _setupRole(LOCK_ROLE, msg.sender);
   }
 
   function version() public view returns (string memory) {
     return _version;
+  }
+
+  function totalSupplyCap() public view returns (uint256 capAmount) {
+    return _totalSupplyCap;
   }
 
   function mint(address to, uint256 amount) public {
@@ -67,7 +73,7 @@ contract HYPER is AccessControl, ERC20, ERC1132 {
      * @param _time Lock time in seconds
      */
   function lock(bytes32 _reason, uint256 _amount, uint256 _time) override public returns (bool) {
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender));
+    require(hasRole(LOCK_ROLE, msg.sender));
     require(tokensLocked(msg.sender, _reason) == 0);
     require(_amount != 0);
     uint256 validUntil = block.timestamp.add(_time);
@@ -93,7 +99,7 @@ contract HYPER is AccessControl, ERC20, ERC1132 {
     * @param _time Lock time in seconds
     */
   function transferWithLock(address _to, bytes32 _reason, uint256 _amount, uint256 _time) public returns (bool) {
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender));
+    require(hasRole(LOCK_ROLE, msg.sender));
     require(tokensLocked(_to, _reason) == 0);
     require(_amount != 0);
     uint256 validUntil = block.timestamp.add(_time);
@@ -117,15 +123,9 @@ contract HYPER is AccessControl, ERC20, ERC1132 {
     * @param _of The address whose tokens are locked
     * @param _reason The reason to query the lock tokens for
     */
-  function tokensLocked(address _of, bytes32 _reason) override public view returns (uint256 amount) {
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender));
-    uint256 _amounts;
-
-    if (!locked[_of][_reason].claimed) {
+  function tokensLocked(address _of, bytes32 _reason) override public view returns (uint256 _amounts) {
+    if (!locked[_of][_reason].claimed)
       _amounts = locked[_of][_reason].amount;
-    }
-    
-    return _amounts;
   }
 
   /**
@@ -136,32 +136,21 @@ contract HYPER is AccessControl, ERC20, ERC1132 {
     * @param _reason The reason to query the lock tokens for
     * @param _time The timestamp to query the lock tokens for
     */
-  function tokensLockedAtTime(address _of, bytes32 _reason, uint256 _time) override public view returns (uint256 amount) {
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender));
-    uint256 _amounts;
-
-    if (locked[_of][_reason].validity > _time) {
+  function tokensLockedAtTime(address _of, bytes32 _reason, uint256 _time) override public view returns (uint256 _amounts) {
+    if (locked[_of][_reason].validity > _time)
       _amounts = locked[_of][_reason].amount;
-    }
-
-    return _amounts;
   }
 
   /**
     * @dev Returns total tokens held by an address (locked + transferable)
     * @param _of The address to query the total balance of
     */
-  function totalBalanceOf(address _of) override public view returns (uint256 amount) {
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender));
-    uint256 _amounts;
-
+  function totalBalanceOf(address _of) override public view returns (uint256 _amounts) {
     _amounts = balanceOf(_of);
 
     for (uint256 i = 0; i < lockReason[_of].length; i++) {
       _amounts = _amounts.add(tokensLocked(_of, lockReason[_of][i]));
     }
-
-    return _amounts;
   }
 
   /**
@@ -170,7 +159,7 @@ contract HYPER is AccessControl, ERC20, ERC1132 {
     * @param _time Lock extension time in seconds
     */
   function extendLock(bytes32 _reason, uint256 _time) override public returns (bool) {
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender));
+    require(hasRole(LOCK_ROLE, msg.sender));
     require(tokensLocked(msg.sender, _reason) > 0);
 
     locked[msg.sender][_reason].validity = locked[msg.sender][_reason].validity.add(_time);
@@ -186,7 +175,7 @@ contract HYPER is AccessControl, ERC20, ERC1132 {
     * @param _amount Number of tokens to be increased
     */
   function increaseLockAmount(bytes32 _reason, uint256 _amount) public override returns (bool) {
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender));
+    require(hasRole(LOCK_ROLE, msg.sender));
     require(tokensLocked(msg.sender, _reason) > 0);
     
     transfer(address(this), _amount);
@@ -202,13 +191,9 @@ contract HYPER is AccessControl, ERC20, ERC1132 {
     * @param _of The address to query the the unlockable token count of
     * @param _reason The reason to query the unlockable tokens for
     */
-  function tokensUnlockable(address _of, bytes32 _reason) override public view returns (uint256 amount) {
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender));
-    uint256 _amounts;
-
-    if (locked[_of][_reason].validity <= block.timestamp && !locked[_of][_reason].claimed) {
+  function tokensUnlockable(address _of, bytes32 _reason) override public view returns (uint256 _amounts) {
+    if (locked[_of][_reason].validity <= block.timestamp && !locked[_of][_reason].claimed)
       _amounts = locked[_of][_reason].amount;
-    }
 
     return _amounts;
   }
@@ -217,10 +202,9 @@ contract HYPER is AccessControl, ERC20, ERC1132 {
     * @dev Unlocks the unlockable tokens of a specified address
     * @param _of Address of user, claiming back unlockable tokens
     */
-  function unlock(address _of) public override returns (uint256 unlockableTokens) {
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender));
+  function unlock(address _of) public override returns (uint256 _unlockableTokens) {
+    require(hasRole(LOCK_ROLE, msg.sender));
     uint256 _lockedTokens;
-    uint256 _unlockableTokens;
 
     for (uint256 i = 0; i < lockReason[_of].length; i++) {
       _lockedTokens = tokensUnlockable(_of, lockReason[_of][i]);
@@ -232,23 +216,16 @@ contract HYPER is AccessControl, ERC20, ERC1132 {
       }
     }
 
-    if (_unlockableTokens > 0) {
+    if (_unlockableTokens > 0)
       this.transfer(_of, _unlockableTokens);
-    }
-
-    return _unlockableTokens;
   }
 
-  function getUnlockableTokens(address _of) public override view returns (uint256 unlockableTokens) {
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender));
+  function getUnlockableTokens(address _of) public override view returns (uint256 _unlockableTokens) {
     uint256 _lockedTokens;
-    uint256 _unlockableTokens;
 
     for (uint256 i = 0; i < lockReason[_of].length; i++) {
       _lockedTokens = tokensUnlockable(_of, lockReason[_of][i]);
       _unlockableTokens = _unlockableTokens.add(_lockedTokens);
     }
-
-    return unlockableTokens;
   }
 }

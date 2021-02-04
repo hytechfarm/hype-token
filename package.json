@@ -9,13 +9,15 @@
     "dev:coverage": "yarn truffle run coverage --network development",
     "ropsten": "yarn truffle migrate --network ropsten",
     "ropsten:coverage": "yarn truffle run coverage --network ropsten",
-    "flat": "rm -rf ./flat && mkdir ./flat && yarn truffle-flattener ./contracts/HYPE.sol > ./flat/HYPE_flat.sol"
+    "flat": "rm -rf ./flat && mkdir ./flat && yarn truffle-flattener ./contracts/HYPER.sol > ./flat/HYPER_flat.sol",
+    "test": "yarn truffle test --network development"
   },
   "devDependencies": {
     "truffle": "^5.1.64"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^3.3.0",
+    "@openzeppelin/test-helpers": "^0.5.10",
     "chai": "^4.2.0",
     "eth-gas-reporter": "^0.2.20",
     "solc": "^0.7.6",
